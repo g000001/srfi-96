@@ -2,20 +2,31 @@
 
 (cl:in-package :asdf)
 
+
 (defsystem :srfi-96
+  :version "20200308"
+  :description "SRFI 96: SLIB Prerequisites"
+  :long-description "SRFI 96: SLIB Prerequisites
+https://srfi.schemers.org/srfi-96"
+  :author "CHIBA Masaomi"
+  :maintainer "CHIBA Masaomi"
   :serial t
-  :depends-on (:fiveam
+  :depends-on (#+sbcl :sb-cltl2
                :srfi-59
                :srfi-98
                :cl-ppcre)
   :components ((:file "package")
                (:file "srfi-96")))
 
-(defmethod perform ((o test-op) (c (eql (find-system :srfi-96))))
-  (load-system :srfi-96)
-  (or (flet ((_ (pkg sym)
-               (intern (symbol-name sym) (find-package pkg))))
-         (let ((result (funcall (_ :fiveam :run) (_ :srfi-96.internal :srfi-96))))
-           (funcall (_ :fiveam :explain!) result)
-           (funcall (_ :fiveam :results-status) result)))
-      (error "test-op failed") ))
+
+(defmethod perform :after ((o load-op) (c (eql (find-system :srfi-96))))
+  (let ((name "https://github.com/g000001/srfi-96")
+        (nickname :srfi-96))
+    (if (and (find-package nickname)
+             (not (eq (find-package nickname)
+                      (find-package name))))
+        (warn "~A: A package with name ~A already exists." name nickname)
+        (rename-package name name `(,nickname)))))
+
+
+;;; *EOF*

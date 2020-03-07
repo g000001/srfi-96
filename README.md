@@ -1,4 +1,5 @@
-* SRFI 96: SLIB Prerequisites
+* SRFI 96 for CL: SLIB Prerequisites
+
 - Copyright (C) Aubrey Jaffer 2007, 2008. All Rights Reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining

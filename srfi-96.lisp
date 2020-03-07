@@ -1,14 +1,11 @@
 ;;;; srfi-96.lisp
 
-(cl:in-package :srfi-96.internal)
-;; (in-readtable :srfi-96)
+(cl:in-package "https://github.com/g000001/srfi-96#internals")
 
-(def-suite srfi-96)
-
-(in-suite srfi-96)
 
 (cl:defmacro defsynonymfun (name fcn)
   `(cl:setf (cl:fdefinition ',name) ,fcn) )
+
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun dynamic-wind (in body out)
@@ -17,27 +14,34 @@
     (unwind-protect (funcall body)
       (funcall out) )))
 
-;;; Configuration
+
+;;; configuration
 
 ;;; - software-type
 
 (defun scheme-implementation-type ()
   (cl:lisp-implementation-type) )
 
+
 (defun scheme-implementation-version ()
   (cl:lisp-implementation-version) )
 
+
 (defun scheme-implementation-home-page ()
   #+sbcl "http://www.sbcl.org/"
-  #-(or sbcl) nil
+  #+lispworks "http://www.lispworks.com/"
+  #-(or sbcl lispworks) nil
   )
+
 
 (defun scheme-file-suffix ()
-  #+sbcl ".lisp"
+  #+(or sbcl lispworks) ".lisp"
   #-(or sbcl) nil
   )
 
-(defvar |SLIB:FEATURES| cl:*features*)
+
+(define-symbol-macro slib$features cl:*features*)
+
 
 ;;; - most-positive-fixnum
 
@@ -56,12 +60,15 @@
 	    thunk
 	    (lambda () (exchange old))))))
 
+
 (let ((cntr 100))
   (defun tmpnam ()
     (incf cntr)
     (format nil "slib_~A" cntr)))
 
+
 (defsynonymfun file-exists? #'cl:probe-file)
+
 
 ;;;; Input/Output
 
@@ -82,12 +89,15 @@
            :direction :output
            :element-type '(unsigned-byte 8)))
     (otherwise
-     (|SLIB:ERROR| 'open-file 'mode? modes))))
+     (slib$error 'open-file 'mode? modes))))
+
 
 (defsynonymfun port? #'cl:streamp)
 
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defsynonymfun close-port #'cl:close))
+
 
 (defun call-with-open-ports (&rest ports)
   (let ((proc (car ports)))
@@ -99,8 +109,10 @@
       (mapc #'close-port ports)
       ans )))
 
+
 (defun current-error-port ()
   cl:*error-output*)
+
 
 ;;; - force-output
 
@@ -110,9 +122,11 @@
   (declare (ignore port))
   79)
 
+
 (defun output-port-height (&optional port)
   (declare (ignore port))
   24)
+
 
 ;;;; Defmacro
 
@@ -120,76 +134,104 @@
 
 ;;; - gentemp
 
-(defsynonymfun |DEFMACRO:EVAL| #'cl:eval)
+(defsynonymfun defmacro$eval #'cl:eval)
 
-(defsynonymfun |DEFMACRO:LOAD| #'cl:load)
+
+(defsynonymfun defmacro$load #'cl:load)
+
 
 ;;; - macroexpand
 
-(defun |DEFMACRO:EXPAND*| (e)
-  #+sbcl (sb-cltl2:macroexpand-all e))
+(defun defmacro$expand* (e)
+  #+sbcl (sb-cltl2:macroexpand-all e)
+  #+lispworks (walker:walk-form e))
+
 
 ;;;; R5RS Macros
 
-(defsynonymfun |MACRO:EXPAND| #'cl:macroexpand)
+(defsynonymfun macro$expand #'cl:macroexpand)
 
-(defsynonymfun |MACRO:EVAL| #'cl:eval)
 
-(defsynonymfun |MACRO:LOAD| #'cl:load)
+(defsynonymfun macro$eval #'cl:eval)
+
+
+(defsynonymfun macro$load #'cl:load)
+
 
 ;;;; System
 
-(defsynonymfun |SLIB:LOAD-SOURCE| #'cl:load)
+(defsynonymfun slib$load-source #'cl:load)
 
-(defsynonymfun |SLIB:LOAD-COMPILED| #'cl:load)
 
-(defsynonymfun |SLIB:LOAD| #'cl:load)
+(defsynonymfun slib$load-compiled #'cl:load)
 
-(defsynonymfun |SLIB:EVAL| #'cl:eval)
 
-(defun |SLIB:EVAL-LOAD| (filename eval)
+(defsynonymfun slib$load #'cl:load)
+
+
+(defsynonymfun slib$eval #'cl:eval)
+
+
+(defun slib$eval-load (filename eval)
   (declare (ignore eval))
   (cl:load filename))
 
-(defun |SLIB:WARN| (&rest args)
+
+(defun slib$warn (&rest args)
   (cl:warn "~{~A~^ ~}" args))
 
-(defun |SLIB:ERROR| (&rest args)
+
+(defun slib$error (&rest args)
   (cl:error "~{~A~^ ~}" args))
 
-(defun |SLIB:EXIT| (&optional (status 0))
+
+(defun slib$exit (&optional (status 0))
   #+sbcl (sb-ext:quit :unix-status status)
-  #-sbcl nil
+  #+lispworks (lw:quit :status status)
+  #-(or sbcl lispworks) nil
   )
+
 
 (defun browse-url (url)
   #+sbcl
   (and (sb-ext:run-program "/usr/bin/firefox" (list url))
+       T)
+  #+lispworks
+  (and (sys:run-shell-command (format nil "/usr/bin/firefox ~A" url))
        T))
 
+
 (defun getenv (name)
-  (srfi-98:get-environment-variable name))
+  (get-environment-variable name))
+
 
 (defun system (command-string)
-  (let ((args (ppcre:split "\\s" command-string)))
+  (let ((args (split "\\s" command-string)))
     #+sbcl
     (sb-ext:process-exit-code
-     (sb-ext:run-program (car args) (cdr args)))))
+     (sb-ext:run-program (car args) (cdr args)))
+    #+lispworks (sys:run-shell-command command-string)))
+
 
 (defun program-arguments ()
-  #+sbcl sb-ext:*posix-argv*)
+  #+sbcl sb-ext:*posix-argv*
+  #+lispworks sys:*line-arguments-list*)
+
 
 ;;;; Miscellany
 
 ;;; - identity
 
-(defconstant |SLIB:TAB| #\Tab)
+(defconstant slib$tab #\Tab)
 
-(defconstant |SLIB:FORM-FEED| #\Page)
+
+(defconstant slib$form-feed #\Page)
+
 
 ;;; Mutual Exclusion
 (defun make-exchanger (obj)
   (lambda (rep) (let ((old obj)) (setq obj rep) old)))
+
 
 ;;; Legacy
 
@@ -198,3 +240,6 @@
 ;;; - nil
 
 (defsynonymfun last-pair #'cl:last)
+
+
+;;; *EOF*
